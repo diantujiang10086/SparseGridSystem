@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class Unit : IDisposable
 {
+    private bool isDisposable = false;
     public int InstanceId { get; private set; }
     private float2 position;
     private Transform transform;
@@ -27,6 +28,8 @@ public class Unit : IDisposable
             transform.position = new Vector3(position.x, position.y, 0);
         }
     }
+
+    public bool IsDisposable => isDisposable;
 
     public Unit(int instanceId, Transform transform)
     {
@@ -60,9 +63,15 @@ public class Unit : IDisposable
 
     public void Dispose()
     {
+        if (isDisposable)
+            return;
+        isDisposable = true;
+        colliderComponent.Dispose();
         if (transform != null)
         {
             GameObject.Destroy(transform.gameObject);
         }
+        transform = null;
+        meshRenderer = null;
     }
 }

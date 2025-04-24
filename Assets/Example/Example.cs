@@ -10,8 +10,6 @@ public class Example : MonoBehaviour
     public int size = 1;
     public GameObject prefab;
     public int instanceId = 0;
-    public int colliderLength;
-    public int idToIndexLength;
     public List<Unit> units = new List<Unit>();
     public readonly Dictionary<int, Unit> dict = new Dictionary<int, Unit>(1000);
     private Unity.Mathematics.Random random;
@@ -62,7 +60,7 @@ public class Example : MonoBehaviour
         var instance = GameObject.Instantiate(prefab);
         var unit = new Unit(++instanceId,instance.transform);
         unit.Position = random.NextFloat2(0, 100);
-        unit.SetCollider(new TestCollider(1));
+        unit.SetCollider(new TestCollider(1, instanceId % 5 == 0));
         unit.SetMoveComponent(new MoveComponent());
         dict[unit.InstanceId] = unit;
         units.Add(unit);

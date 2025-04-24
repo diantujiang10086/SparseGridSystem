@@ -5,7 +5,7 @@ using UnityEngine;
 
 public partial class QueryColliderSystem : SystemBase
 {
-    private Example test;
+    private Example example;
     private QueryRadiusComponent queryRadiusComponent;
     private HashSet<Unit> currentUnits;
     private HashSet<Unit> lastUnits;
@@ -14,7 +14,7 @@ public partial class QueryColliderSystem : SystemBase
     {
         currentUnits = new HashSet<Unit>(4096);
         lastUnits = new HashSet<Unit>(4096);
-        test = Transform.FindAnyObjectByType<Example>();
+        example = Transform.FindAnyObjectByType<Example>();
         queryRadiusComponent = new GameObject().AddComponent<QueryRadiusComponent>();
     }
 
@@ -32,10 +32,10 @@ public partial class QueryColliderSystem : SystemBase
 
             foreach (var instance in result)
             {
-                if (test.dict.TryGetValue(instance, out var unit))
+                if (example.dict.TryGetValue(instance, out var unit))
                 {
                     currentUnits.Add(unit);
-                    unit.SetColor(Color.red);
+                    unit.SetColor(Color.green);
                 }
             }
 
@@ -43,7 +43,8 @@ public partial class QueryColliderSystem : SystemBase
             {
                 if (!currentUnits.Contains(unit))
                 {
-                    unit.SetColor(Color.white);
+                    if(!unit.IsDisposable)
+                        unit.SetColor(Color.white);
                 }
             }
 
@@ -52,3 +53,4 @@ public partial class QueryColliderSystem : SystemBase
         }).WithoutBurst().WithDisposeOnCompletion(result).Run();
     }
 }
+

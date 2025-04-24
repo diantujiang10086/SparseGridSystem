@@ -39,4 +39,9 @@ public static class SparseGridSystemExtensions
     {
         return System.QueryRadius(new QueryRadiusCollider { position = position, radius = radius }, jobData, inputDeps);
     }
+
+    public static JobHandle Schedule<T>(this T jobData, JobHandle inputDeps) where T : struct, ICollisionDetectionEventJobBase
+    {
+        return System.QueryColliderDetection(jobData, inputDeps);
+    }
 }

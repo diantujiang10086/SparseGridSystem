@@ -16,6 +16,10 @@
 - ✅ **Query Radius Collider**  
   查询某一位置周围指定半径内的所有碰撞体。
 
+- ✅ **Collision Detection**  
+  碰撞检测
+
+
 ## 系统架构
 
 该系统基于以下 Unity 原生集合和 Job 系统实现：
@@ -48,11 +52,17 @@ Dependency = new QueryRadiusColliderJob
 {
     result = result.AsParallelWriter(),
 }.Schedule(position, radius, Dependency);
+
+// 碰撞检测
+var resultList = new NativeList<CollisionDetectionEvent>(4096,Allocator.TempJob);
+var job = new ColliderDetectionResult
+{
+    resultArray = resultList.AsParallelWriter()
+}.Schedule(Dependency);
+
 ```
 
 未来计划
- 
- 碰撞检测
  
  支持多种碰撞形状（如 Box, Capsule）
 

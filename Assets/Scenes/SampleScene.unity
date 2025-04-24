@@ -338,12 +338,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   isDrawGrid: 0
-  isUpdate: 0
+  isUpdate: 1
   count: 3000
+  size: 1
   prefab: {fileID: 1149089618194447516, guid: b4bd38f89e7883749819b054c3c5dca3, type: 3}
   instanceId: 0
-  colliderLength: 0
-  idToIndexLength: 0
 --- !u!4 &891050127
 Transform:
   m_ObjectHideFlags: 0

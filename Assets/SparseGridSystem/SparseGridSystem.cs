@@ -2,6 +2,8 @@
 using Unity.Entities;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine;
+using System.Collections.Generic;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(LateSimulationSystemGroup))]
@@ -14,22 +16,22 @@ public partial class SparseGridSystem : SystemBase
     private DoubleBufferList<int> removeBuffer;
     private DoubleBufferList<Collider> addBuffer;
     private DoubleBufferList<UpdateCollider> updateBuffer;
-    private DoubleBufferList<QueryRadiusCollider> queryRangeColliderBuffer;
+
     private NativeList<Collider> colliders;
     private NativeParallelHashMap<int, int> idToIndex;
     private NativeParallelMultiHashMap<int2, int> gridMap;
 
-    private NativeParallelMultiHashMap<int, int> queryRadiusColliders;
+    private NativeParallelHashSet<int2> colliderDetectionResultSet;
+    private NativeList<int2> colliderDetectionResultArray;
+    private JobHandle collisionDetectionHandle;
 
     public void Initialize(int capacity, int cellSize)
     {
         this.cellSize = cellSize;
         initCapacity = math.max(defaultCapacity, capacity);
 
-        if(queryRangeColliderBuffer == null)
+        if(removeBuffer == null)
         {
-            queryRangeColliderBuffer = new DoubleBufferList<QueryRadiusCollider>(initCapacity, Allocator.Persistent);
-            queryRadiusColliders = new NativeParallelMultiHashMap<int, int>(initCapacity, Allocator.Persistent);
             removeBuffer = new DoubleBufferList<int>(initCapacity, Allocator.Persistent);
             addBuffer = new DoubleBufferList<Collider>(initCapacity, Allocator.Persistent);
             updateBuffer = new DoubleBufferList<UpdateCollider>(initCapacity, Allocator.Persistent);
@@ -37,27 +39,36 @@ public partial class SparseGridSystem : SystemBase
             colliders = new NativeList<Collider>(initCapacity, Allocator.Persistent);
             idToIndex = new NativeParallelHashMap<int, int>(initCapacity, Allocator.Persistent);
             gridMap = new NativeParallelMultiHashMap<int2, int>(initCapacity * 10, Allocator.Persistent);
+            colliderDetectionResultSet = new NativeParallelHashSet<int2>(initCapacity * 2, Allocator.Persistent);
+            colliderDetectionResultArray = new NativeList<int2>(initCapacity * 2, Allocator.Persistent);
         }
         else
         {
-            queryRangeColliderBuffer.Capacity = initCapacity;
-            queryRadiusColliders.Capacity = initCapacity;
             removeBuffer.Capacity = initCapacity;
             addBuffer.Capacity = initCapacity;
             updateBuffer.Capacity = initCapacity;
             colliders.Capacity = initCapacity;
             idToIndex.Capacity = initCapacity;
             gridMap.Capacity = initCapacity * 10;
+            colliderDetectionResultSet.Capacity = initCapacity * 2;
+            colliderDetectionResultArray.Capacity = initCapacity * 2;
         }
     }
 
     internal void AddCollider(ICollider collider)
     {
-        addBuffer.Add(new Collider 
-        { 
-            instanceId = collider.InstanceId, 
-            position = collider.Position, 
-            size = collider.Size 
+        var isEnableColliderDetection = collider.IsEnableColliderDetection ? 1 : 0;
+        addBuffer.Add(new Collider
+        {
+            instanceId = collider.InstanceId,
+            position = collider.Position,
+            size = collider.Size,
+            layer = collider.Layer,
+            colliderLayer = collider.ColliderLayer,
+            colliderType = collider.ColliderType,
+            colliderColliderType = collider.ColliderColliderType,
+            isEnableColliderDetection = isEnableColliderDetection,
+            colliderShape = collider.ColliderShape
         });
     }
 
@@ -71,7 +82,7 @@ public partial class SparseGridSystem : SystemBase
         updateBuffer.Add(new UpdateCollider { instanceId = collider.InstanceId, position = collider.Position });
     }
 
-    internal JobHandle QueryRadius<T>(QueryRadiusCollider queryRangeCollider, T jobData, JobHandle jobHandle) where T : struct, IQueryRadiusColliderEventJobBase
+    internal JobHandle QueryRadius<T>(QueryRadiusCollider queryRangeCollider, T jobData, JobHandle inputDeps) where T : struct, IQueryRadiusColliderEventJobBase
     {
         var cells = new NativeList<int2>(GenerateGridCellsJob.CountCoveredCells(queryRangeCollider, cellSize), Allocator.TempJob);
         var handle =  new GenerateGridCellsJob
@@ -104,6 +115,17 @@ public partial class SparseGridSystem : SystemBase
         return JobHandle.CombineDependencies(dispose1, dispose2);
     }
 
+    internal JobHandle QueryColliderDetection<T>(T jobData, JobHandle inputDeps) where T : struct, ICollisionDetectionEventJobBase
+    {
+        var combinedDeps = JobHandle.CombineDependencies(Dependency, inputDeps);
+        var jobHandle = new CollisionDetectionEventJob<T>
+        {
+            instanceIds = colliderDetectionResultArray.AsDeferredJobArray(),
+            jobData = jobData
+        }.Schedule(colliderDetectionResultArray, 128, combinedDeps);
+        return JobHandle.CombineDependencies(Dependency, jobHandle);
+    }
+
     protected override void OnCreate()
     {
         Initialize(defaultCapacity, defaultCellSize);
@@ -111,8 +133,8 @@ public partial class SparseGridSystem : SystemBase
 
     protected override void OnDestroy()
     {
-        queryRangeColliderBuffer.Dispose();
-        queryRadiusColliders.Dispose();
+        colliderDetectionResultSet.Dispose();
+        colliderDetectionResultArray.Dispose();
         addBuffer.Dispose();
         removeBuffer.Dispose();
         updateBuffer.Dispose();
@@ -199,9 +221,31 @@ public partial class SparseGridSystem : SystemBase
                 idToIndex = idToIndex,
                  updateColliders = updateArray
             }.Schedule(updateArray.Length, 128, handle);
-
         }
 
+        Dependency = ColliderDetection(Dependency);
+
     }
+
     
+
+    JobHandle ColliderDetection(JobHandle jobHandle)
+    {
+        if (collisionDetectionHandle.IsCompleted)
+        {
+            colliderDetectionResultSet.Clear();
+            colliderDetectionResultArray.Clear();
+        }
+        collisionDetectionHandle = new CollisionDetectionJob
+        {
+            cellSize = cellSize,
+            colliders = colliders.AsDeferredJobArray(),
+            gridMap = gridMap,
+            idToIndex = idToIndex,
+            result = colliderDetectionResultSet.AsParallelWriter(),
+            resultArray = colliderDetectionResultArray.AsParallelWriter()
+        }.Schedule(colliders, 128, jobHandle);
+        return collisionDetectionHandle;
+    }
+
 }
