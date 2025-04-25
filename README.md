@@ -19,7 +19,6 @@
 - ✅ **Collision Detection**  
   碰撞检测
 
-
 ## 系统架构
 
 该系统基于以下 Unity 原生集合和 Job 系统实现：
@@ -63,9 +62,6 @@ var job = new ColliderDetectionResult
 ```
 
 未来计划
- 
- 支持多种碰撞形状（如 Box, Capsule）
-
- 可视化调试工具
+ 多形状碰撞检测
 
  
