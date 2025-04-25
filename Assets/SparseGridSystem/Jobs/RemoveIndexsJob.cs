@@ -30,13 +30,11 @@ internal struct RemoveIndexsJob : IJobParallelFor
             }
         }
 
-        var half = collider.size * 0.5f;
-        int2 minGrid = Helper.WorldToGridPos(collider.position - half, cellSize);
-        int2 maxGrid = Helper.WorldToGridPos(collider.position + half, cellSize);
+        collider.GetGrid(cellSize, out var min, out var max);
 
-        for (int x = minGrid.x; x <= maxGrid.x; x++)
+        for (int x = min.x; x <= max.x; x++)
         {
-            for (int y = minGrid.y; y <= maxGrid.y; y++)
+            for (int y = min.y; y <= max.y; y++)
             {
                 removeGridInstanceIds.Add(new int3(x, y, collider.instanceId));
             }

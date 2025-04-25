@@ -1,7 +1,7 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Mathematics;
+using System;
 
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
 
@@ -31,22 +31,26 @@ internal struct Collider : IEquatable<Collider>
     {
         return instanceId;
     }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsEnableColliderDetection()
     {
         return isEnableColliderDetection == 1;
     }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool IsCheckCollideType()
     {
         return colliderColliderType != 0;
     }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool CanCollideWith(in Collider other)
     {
         return (colliderLayer & other.layer) != 0 &&
                (other.colliderLayer & layer) != 0;
     }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool CanCollideTypeWith(in Collider other)
     {

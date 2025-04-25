@@ -25,14 +25,12 @@ internal struct AddColliderJob : IJobParallelFor
         {
             addColliderDetections.AddNoResize(collider.instanceId);
         }
-        
-        var half = collider.size * 0.5f;
-        int2 minGrid = Helper.WorldToGridPos(collider.position - half, cellSize);
-        int2 maxGrid = Helper.WorldToGridPos(collider.position + half, cellSize);
 
-        for (int x = minGrid.x; x <= maxGrid.x; x++)
+        collider.GetGrid(cellSize, out var min, out var max);
+
+        for (int x = min.x; x <= max.x; x++)
         {
-            for (int y = minGrid.y; y <= maxGrid.y; y++)
+            for (int y = min.y; y <= max.y; y++)
             {
                 gridMap.Add(new int2(x, y), instanceId);
             }

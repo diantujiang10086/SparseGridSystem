@@ -32,7 +32,7 @@ internal struct CollisionDetectionEventJob<T> : IJobParallelForDefer where T : s
     }
 }
 
-[BurstCompile(Debug =true)]
+[BurstCompile()]
 internal struct CollisionDetectionJob : IJobParallelForDefer
 {
     [ReadOnly] public float cellSize;
@@ -49,13 +49,7 @@ internal struct CollisionDetectionJob : IJobParallelForDefer
             return;
 
         var collider = colliders[colliderIndex];
-        if (!collider.IsEnableColliderDetection())
-            return;
-
-        var position = collider.position;
-        var halfSize = collider.size * 0.5f;
-        var min = Helper.WorldToGridPos(position - halfSize, cellSize);
-        var max = Helper.WorldToGridPos(position + halfSize, cellSize);
+        collider.GetGrid(cellSize, out var min, out var max);
 
         for (int x = min.x; x <= max.x; x++)
         {
@@ -68,27 +62,24 @@ internal struct CollisionDetectionJob : IJobParallelForDefer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void Foreach(in Collider collider, int2 cell)
     {
-        if (gridMap.TryGetFirstValue(cell, out var id, out var it))
+        if (!gridMap.TryGetFirstValue(cell, out var id, out var it))
+            return;
+        do
         {
-            do
+            if (idToIndex.TryGetValue(id, out var colliderIndex))
             {
-                if (idToIndex.TryGetValue(id, out var colliderIndex))
+                var otherCollider = colliders[colliderIndex];
+                if (collider != otherCollider && collider.CanCollideWith(otherCollider))
                 {
-                    var otherCollider = colliders[colliderIndex];
-                    if (collider != otherCollider && collider.CanCollideWith(otherCollider))
+                    bool isCheckColliderType = collider.IsCheckCollideType();
+                    bool value = !isCheckColliderType || (isCheckColliderType && collider.CanCollideTypeWith(otherCollider));
+                    if(value)
                     {
-                        if (!collider.IsCheckCollideType())
-                        {
-                            AddResult(in collider, in otherCollider);
-                        }
-                        else if (collider.CanCollideTypeWith(otherCollider))
-                        {
-                            AddResult(in collider, in otherCollider);
-                        }
+                        AddResult(in collider, in otherCollider);
                     }
                 }
-            } while (gridMap.TryGetNextValue(out id, ref it));
-        }
+            }
+        } while (gridMap.TryGetNextValue(out id, ref it));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
