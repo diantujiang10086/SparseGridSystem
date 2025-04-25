@@ -32,7 +32,7 @@ internal struct Collider : IEquatable<Collider>
         return instanceId;
     }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool IsEnableCollider()
+    public bool IsEnableColliderDetection()
     {
         return isEnableColliderDetection == 1;
     }

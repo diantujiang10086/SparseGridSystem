@@ -1,6 +1,6 @@
-﻿using Unity.Jobs;
-using Unity.Burst;
+﻿using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile()]
@@ -12,14 +12,20 @@ internal struct AddColliderJob : IJobParallelFor
     [NativeDisableParallelForRestriction] public NativeList<Collider> colliders;
     public NativeParallelHashMap<int, int>.ParallelWriter idToIndex;
     public NativeParallelMultiHashMap<int2, int>.ParallelWriter gridMap;
+    public NativeList<int>.ParallelWriter addColliderDetections;
     public void Execute(int index)
     {
         var collider = addArray[index];
         int instanceId = collider.instanceId;
         var colliderIndex = arrayLength + index;
-        colliders[colliderIndex]  = collider;
+        colliders[colliderIndex] = collider;
         idToIndex.TryAdd(instanceId, colliderIndex);
 
+        if(collider.IsEnableColliderDetection())
+        {
+            addColliderDetections.AddNoResize(collider.instanceId);
+        }
+        
         var half = collider.size * 0.5f;
         int2 minGrid = Helper.WorldToGridPos(collider.position - half, cellSize);
         int2 maxGrid = Helper.WorldToGridPos(collider.position + half, cellSize);

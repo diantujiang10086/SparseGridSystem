@@ -36,6 +36,7 @@ internal struct CollisionDetectionEventJob<T> : IJobParallelForDefer where T : s
 internal struct CollisionDetectionJob : IJobParallelForDefer
 {
     [ReadOnly] public float cellSize;
+    [ReadOnly] public NativeList<int> colliderDetections;
     [ReadOnly] public NativeArray<Collider> colliders;
     [ReadOnly] public NativeParallelHashMap<int, int> idToIndex;
     [ReadOnly] public NativeParallelMultiHashMap<int2, int> gridMap;
@@ -43,8 +44,12 @@ internal struct CollisionDetectionJob : IJobParallelForDefer
     public NativeList<int2>.ParallelWriter resultArray;
     public void Execute(int index)
     {
-        var collider = colliders[index];
-        if (!collider.IsEnableCollider())
+        var colliderDetectionInstanceId = colliderDetections[index];
+        if (!idToIndex.TryGetValue(colliderDetectionInstanceId, out var colliderIndex))
+            return;
+
+        var collider = colliders[colliderIndex];
+        if (!collider.IsEnableColliderDetection())
             return;
 
         var position = collider.position;

@@ -17,6 +17,8 @@ public partial class SparseGridSystem : SystemBase
     private DoubleBufferList<Collider> addBuffer;
     private DoubleBufferList<UpdateCollider> updateBuffer;
 
+    private NativeList<int> colliderDetections;
+    private NativeParallelHashMap<int, int> colliderDetectionMap;
     private NativeList<Collider> colliders;
     private NativeParallelHashMap<int, int> idToIndex;
     private NativeParallelMultiHashMap<int2, int> gridMap;
@@ -36,6 +38,8 @@ public partial class SparseGridSystem : SystemBase
             addBuffer = new DoubleBufferList<Collider>(initCapacity, Allocator.Persistent);
             updateBuffer = new DoubleBufferList<UpdateCollider>(initCapacity, Allocator.Persistent);
 
+            colliderDetections = new NativeList<int>(initCapacity, Allocator.Persistent);
+            colliderDetectionMap = new NativeParallelHashMap<int, int>(initCapacity, Allocator.Persistent);
             colliders = new NativeList<Collider>(initCapacity, Allocator.Persistent);
             idToIndex = new NativeParallelHashMap<int, int>(initCapacity, Allocator.Persistent);
             gridMap = new NativeParallelMultiHashMap<int2, int>(initCapacity * 10, Allocator.Persistent);
@@ -44,6 +48,8 @@ public partial class SparseGridSystem : SystemBase
         }
         else
         {
+            colliderDetections.Capacity = initCapacity;
+            colliderDetectionMap.Capacity = initCapacity;
             removeBuffer.Capacity = initCapacity;
             addBuffer.Capacity = initCapacity;
             updateBuffer.Capacity = initCapacity;
@@ -140,6 +146,8 @@ public partial class SparseGridSystem : SystemBase
         updateBuffer.Dispose();
 
         idToIndex.Dispose();
+        colliderDetections.Dispose();
+        colliderDetectionMap.Dispose();
         colliders.Dispose();
         gridMap.Dispose();
         SparseGridSystemExtensions.Clear();
@@ -155,20 +163,26 @@ public partial class SparseGridSystem : SystemBase
         {
             var removeColliderIndexsSet = new NativeParallelHashSet<InstanceIdWithIndex>(removeInstanceIdArray.Length, Allocator.TempJob);
             var removeGridInstanceIdsSet = new NativeParallelHashSet<int3>(removeInstanceIdArray.Length * 4, Allocator.TempJob);
+            var removeColliderDetectionIndexs = new NativeParallelHashSet<int>(removeInstanceIdArray.Length, Allocator.TempJob);
             var handle = new RemoveIndexsJob
             {
                 cellSize = cellSize,
                 colliders = colliders,
                 idToIndex = idToIndex,
                 removeArray = removeInstanceIdArray,
+                colliderDetectionMap = colliderDetectionMap,
                 removeGridInstanceIds = removeGridInstanceIdsSet.AsParallelWriter(),
                 removeColliderIndexs = removeColliderIndexsSet.AsParallelWriter(),
+                removeColliderDetectionIndexs = removeColliderDetectionIndexs.AsParallelWriter(),
             }.Schedule(removeInstanceIdArray.Length, 128, Dependency);
             handle = new RemoveColliderJob
             {
                 idToIndex = idToIndex,
                 colliders = colliders,
                 removeEntries = removeColliderIndexsSet,
+                colliderDetections = colliderDetections,
+                colliderDetectionMap = colliderDetectionMap,
+                removeColliderDetectionIndexs = removeColliderDetectionIndexs,
             }.Schedule(handle);
             handle = new RemoveGridMapJob
             {
@@ -186,7 +200,8 @@ public partial class SparseGridSystem : SystemBase
             Dependency.Complete();
             int startLength = colliders.Length;
             colliders.ResizeUninitialized(colliders.Length + addArray.Length);
-            Dependency = new AddColliderJob
+            NativeList<int> addColliderDetections = new NativeList<int>(addArray.Length, Allocator.Persistent);
+            var handle = new AddColliderJob
             {
                 cellSize = cellSize,
                 arrayLength = startLength,
@@ -194,10 +209,24 @@ public partial class SparseGridSystem : SystemBase
                 colliders = colliders,
                 gridMap = gridMap.AsParallelWriter(),
                 idToIndex = idToIndex.AsParallelWriter(),
+                addColliderDetections = addColliderDetections.AsParallelWriter(),
             }.Schedule(addArray.Length, 128, Dependency);
+            handle.Complete();
+
+            int colliderArrayLength = colliderDetections.Length;
+            colliderDetections.ResizeUninitialized(colliderDetections.Length + addColliderDetections.Length);
+            var handle2 = new AddColliderDetectionJob
+            {
+                colliderArrayLength = colliderArrayLength,
+                addColliderDetections = addColliderDetections,
+                colliderDetections = colliderDetections,
+                colliderDetectionMap = colliderDetectionMap.AsParallelWriter(),
+            }.Schedule(addColliderDetections, 128, handle);
+            addColliderDetections.Dispose(handle2);
+            Dependency = handle2;
         }
-        
-        if(updateArray.Length > 0)
+
+        if (updateArray.Length > 0)
         {
             var removeGridInstanceIdsSet = new NativeParallelHashSet<int3>(updateArray.Length * 4, Allocator.TempJob);
             var handle = new UpdateGridJob
@@ -239,12 +268,13 @@ public partial class SparseGridSystem : SystemBase
         collisionDetectionHandle = new CollisionDetectionJob
         {
             cellSize = cellSize,
-            colliders = colliders.AsDeferredJobArray(),
             gridMap = gridMap,
             idToIndex = idToIndex,
+            colliderDetections = colliderDetections,
+            colliders = colliders.AsDeferredJobArray(),
             result = colliderDetectionResultSet.AsParallelWriter(),
             resultArray = colliderDetectionResultArray.AsParallelWriter()
-        }.Schedule(colliders, 128, jobHandle);
+        }.Schedule(colliderDetections, 128, jobHandle);
         return collisionDetectionHandle;
     }
 

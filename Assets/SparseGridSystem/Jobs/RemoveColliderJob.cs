@@ -1,25 +1,31 @@
-﻿using Unity.Jobs;
+﻿using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
-using System.Collections.Generic;
+using Unity.Jobs;
 
-[BurstCompile()]
+[BurstCompile(Debug =true)]
 internal struct RemoveColliderJob : IJob
 {
-    private static readonly IndexComparer defaultComparer = default;
+    private static readonly IntComparer intComparer = default;
+    private static readonly IndexComparer indexComparer = default;
     public NativeParallelHashSet<InstanceIdWithIndex> removeEntries;
     public NativeParallelHashMap<int, int> idToIndex;
     public NativeList<Collider> colliders;
+    public NativeList<int> colliderDetections;
+    public NativeParallelHashMap<int, int> colliderDetectionMap;
+    public NativeParallelHashSet<int> removeColliderDetectionIndexs;
     public void Execute()
     {
-        var array = removeEntries.ToNativeArray(Allocator.Temp);
-        array.Sort(defaultComparer);
+        var removeArray = removeEntries.ToNativeArray(Allocator.Temp);
+        removeArray.Sort(indexComparer);
 
-        for (int i = 0; i < array.Length; i++)
+        for (int i = 0; i < removeArray.Length; i++)
         {
-            var entry = array[i];
+            var entry = removeArray[i];
             idToIndex.Remove(entry.instanceId);
 
+            colliderDetectionMap.Remove(entry.instanceId);
+            
             int indexToRemove = entry.colliderIndex;
             int lastIndex = colliders.Length - 1;
 
@@ -30,7 +36,26 @@ internal struct RemoveColliderJob : IJob
             }
             colliders.RemoveAtSwapBack(indexToRemove);
         }
-        array.Dispose();
+
+        var removeColliderDetectionIndexsArray = removeColliderDetectionIndexs.ToNativeArray(Allocator.Temp);
+        removeColliderDetectionIndexsArray.Sort(intComparer);
+
+        for (var i = 0; i < removeColliderDetectionIndexsArray.Length; i++)
+        {
+            var lastIndex = colliderDetections.Length - 1;
+            int removeIndex = removeColliderDetectionIndexsArray[i];
+
+            if(removeIndex != lastIndex)
+            {
+                var instanceId = colliderDetections[lastIndex];
+                colliderDetectionMap[instanceId] = removeIndex;
+            }
+
+            colliderDetections.RemoveAtSwapBack(removeIndex);
+        }
+
+        removeArray.Dispose();
+        removeColliderDetectionIndexsArray.Dispose();
     }
 
     struct IndexComparer : IComparer<InstanceIdWithIndex>
@@ -38,6 +63,14 @@ internal struct RemoveColliderJob : IJob
         public int Compare(InstanceIdWithIndex x, InstanceIdWithIndex y)
         {
             return y.colliderIndex.CompareTo(x.colliderIndex);
+        }
+    }
+
+    struct IntComparer : IComparer<int>
+    {
+        public int Compare(int x, int y)
+        {
+            return y.CompareTo(x);
         }
     }
 }
