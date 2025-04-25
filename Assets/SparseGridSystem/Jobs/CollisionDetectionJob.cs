@@ -55,12 +55,12 @@ internal struct CollisionDetectionJob : IJobParallelForDefer
         {
             for (int y = min.y; y <= max.y; y++)
             {
-                Foreach(in collider, new int2(x, y));
+                Foreach(ref collider, new int2(x, y));
             }
         }
     }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void Foreach(in Collider collider, int2 cell)
+    void Foreach(ref Collider collider, int2 cell)
     {
         if (!gridMap.TryGetFirstValue(cell, out var id, out var it))
             return;
@@ -75,7 +75,7 @@ internal struct CollisionDetectionJob : IJobParallelForDefer
                     bool value = !isCheckColliderType || (isCheckColliderType && collider.CanCollideTypeWith(otherCollider));
                     if(value)
                     {
-                        AddResult(in collider, in otherCollider);
+                        AddResult(ref collider, ref otherCollider);
                     }
                 }
             }
@@ -83,14 +83,17 @@ internal struct CollisionDetectionJob : IJobParallelForDefer
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void AddResult(in Collider collider, in Collider otherCollider)
+    void AddResult(ref Collider collider, ref Collider otherCollider)
     {
-        if (!CollisionHelper.Overlap(in collider, in otherCollider))
+        if (!CollisionHelper.AABBOverlap(in collider, in otherCollider))
             return;
 
-        int2 pair = collider.instanceId < otherCollider.instanceId
-            ? new int2(collider.instanceId, otherCollider.instanceId)
-            : new int2(otherCollider.instanceId, collider.instanceId);
+        if (!CollisionHelper.Overlap(ref collider, ref otherCollider))
+            return;
+
+        int2 pair = collider.header.instanceId < otherCollider.header.instanceId
+            ? new int2(collider.header.instanceId, otherCollider.header.instanceId)
+            : new int2(otherCollider.header.instanceId, collider.header.instanceId);
 
         if (result.Add(pair))
         {

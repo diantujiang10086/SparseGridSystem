@@ -89,7 +89,7 @@ internal struct QueryRadiusColliderJob : IJobParallelForDefer
             if (idToIndex.TryGetValue(id, out var colliderIndex))
             {
                 var collider = colliders[colliderIndex];
-                float2 colliderPos = collider.position;
+                float2 colliderPos = collider.header.position;
                 float distSqr = math.lengthsq(queryPos - colliderPos);
                 if (distSqr <= queryDistSqr)
                 {

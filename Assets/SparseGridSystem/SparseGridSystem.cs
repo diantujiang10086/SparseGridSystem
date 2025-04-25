@@ -1,9 +1,7 @@
-﻿using Unity.Jobs;
+﻿using Unity.Collections;
 using Unity.Entities;
-using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
-using System.Collections.Generic;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(LateSimulationSystemGroup))]
@@ -63,19 +61,7 @@ public partial class SparseGridSystem : SystemBase
 
     internal void AddCollider(ICollider collider)
     {
-        var isEnableColliderDetection = collider.IsEnableColliderDetection ? 1 : 0;
-        addBuffer.Add(new Collider
-        {
-            instanceId = collider.InstanceId,
-            position = collider.Position,
-            size = collider.Size,
-            layer = collider.Layer,
-            colliderLayer = collider.ColliderLayer,
-            colliderType = collider.ColliderType,
-            colliderColliderType = collider.ColliderColliderType,
-            isEnableColliderDetection = isEnableColliderDetection,
-            colliderShape = collider.ColliderShape
-        });
+        addBuffer.Add(collider.CreateCollider());
     }
 
     internal void RemoveCollider(ICollider collider)

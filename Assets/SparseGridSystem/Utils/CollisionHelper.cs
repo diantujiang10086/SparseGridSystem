@@ -1,46 +1,82 @@
 ﻿using System.Runtime.CompilerServices;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 internal static class CollisionHelper
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Overlap(in Collider a, in Collider b)
+    public static bool AlmostEqual(float a, float b)
     {
-        ColliderShape shapeA = a.colliderShape;
-        ColliderShape shapeB = b.colliderShape;
-
-        if (shapeA == ColliderShape.Box && shapeB == ColliderShape.Box)
-            return AABBOverlap(in a, in b);
-
-        if (shapeA == ColliderShape.Circle && shapeB == ColliderShape.Circle)
-            return CircleOverlap(in a, in b);
-        return false;
+        const float epsilon = 1e-5f;
+        return math.abs(a - b) < epsilon;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool AABBOverlap(in Collider a, in Collider b)
     {
-        float2 aHalf = a.size * 0.5f;
-        float2 bHalf = b.size * 0.5f;
+        float2 aHalf = a.header.size * 0.5f;
+        float2 bHalf = b.header.size * 0.5f;
 
-        float2 aMin = a.position - aHalf;
-        float2 aMax = a.position + aHalf;
-        float2 bMin = b.position - bHalf;
-        float2 bMax = b.position + bHalf;
+        float2 aMin = a.header.position - aHalf;
+        float2 aMax = a.header.position + aHalf;
+        float2 bMin = b.header.position - bHalf;
+        float2 bMax = b.header.position + bHalf;
 
         return !(aMax.x < bMin.x || aMin.x > bMax.x ||
                  aMax.y < bMin.y || aMin.y > bMax.y);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool CircleOverlap(in Collider a, in Collider b)
+    public static bool Overlap(ref Collider a, ref Collider b)
     {
-        float2 delta = a.position - b.position;
-        float distanceSq = math.lengthsq(delta);
-        float radiusA = a.size.x * 0.5f;
-        float radiusB = b.size.x * 0.5f;
-        float radiusSum = radiusA + radiusB;
-        return distanceSq <= radiusSum * radiusSum;
+        ColliderShape shapeA = a.header.colliderShape;
+        if (a.header.colliderShape == ColliderShape.Box)
+        {
+            ref readonly var collider = ref UnsafeUtility.As<Collider, BoxCollider>(ref a);
+            return collider.Overlap(ref b);
+        }
+        if(a.header.colliderShape == ColliderShape.Circle)
+        {
+            ref readonly var collider = ref UnsafeUtility.As<Collider, CircleCollider>(ref a);
+            return collider.Overlap(ref b);
+        }
+        
+        return false;
     }
 
+    public static bool Overlap(this BoxCollider a, ref Collider b)
+    {
+        if(b.header.colliderShape == ColliderShape.Box)
+        {
+            if (AlmostEqual(a.header.angle, 0) && AlmostEqual(b.header.angle, 0))
+            {
+                ref readonly var box = ref UnsafeUtility.As<BoxCollider, Collider>(ref a);
+                return AABBOverlap(in box, in b);
+            }
+            ref readonly var collider = ref UnsafeUtility.As<Collider, BoxCollider>(ref b);
+            return a.Overlap(in collider);
+        }
+        else if (b.header.colliderShape == ColliderShape.Circle)
+        {
+            ref readonly var collider = ref UnsafeUtility.As<Collider, CircleCollider>(ref b);
+            return a.Overlap(in collider);
+        }
+        return false;
+    }
+
+    public static bool Overlap(this CircleCollider a, ref Collider b)
+    {
+        if(b.header.colliderShape == ColliderShape.Box)
+        {
+            ref readonly var collider = ref UnsafeUtility.As<Collider, BoxCollider>(ref b);
+            return collider.Overlap(in a);
+        }
+        else if (b.header.colliderShape == ColliderShape.Circle)
+        {
+            ref readonly var collider = ref UnsafeUtility.As<Collider, CircleCollider>(ref b);
+            return a.Overlap(in collider);
+        }
+        return false;
+    }
 }
+

@@ -2,20 +2,13 @@
 using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
-public enum ColliderShape: int
-{
-    None = 0,
-    Box = 1,
-    Circle = 2,
-    Polygon = 3,
-}
-
 public interface ICollider
 {
     int InstanceId { get; }
     bool IsEnableColliderDetection { get; }
     float2 Size { get; }
     float2 Position { get; }
+    float angle { get; }
     ColliderShape ColliderShape { get; }
     int Layer { get; }
     int ColliderLayer { get; }
@@ -24,11 +17,14 @@ public interface ICollider
     /// </summary>
     int ColliderType { get; }
     int ColliderColliderType { get; }
+
+    IGeometry Geometry { get; }
 }
 
 public abstract class BaseCollider : ICollider, IDisposable
 {
     private float2 position;
+    private IGeometry geometry;
     public int InstanceId { get; set; }
 
     public float2 Size { get;  set; }
@@ -57,6 +53,18 @@ public abstract class BaseCollider : ICollider, IDisposable
     public ColliderShape ColliderShape { get; set; } = ColliderShape.Box;
 
     public bool IsEnableColliderDetection { get; set; }
+
+    public float angle { get; set; }
+
+    public IGeometry Geometry
+    {
+        get => geometry;
+        set
+        {
+            geometry = value;
+        }
+    }
+
 
     public void Initialize(float2 position)
     {
@@ -100,7 +108,6 @@ public abstract class BaseCollider : ICollider, IDisposable
         ColliderColliderType = 0;
     }
 
-
     public void Dispose()
     {
 #if UNITY_EDITOR
@@ -115,4 +122,5 @@ public abstract class BaseCollider : ICollider, IDisposable
     {
 
     }
+
 }

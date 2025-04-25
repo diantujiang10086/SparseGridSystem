@@ -21,12 +21,12 @@ internal struct UpdateGridJob : IJobParallelFor
 
         collider = colliders[colliderIndex];
 
-        var curPosition = collider.position;
+        var curPosition = collider.header.position;
         var newPosition = updateCollider.position;
         if(math.all(curPosition == newPosition))
             return;
 
-        var halfSize = collider.size * 0.5f;
+        var halfSize = collider.header.size * 0.5f;
         var oldMin = Helper.WorldToGridPos(curPosition - halfSize, cellSize);
         var oldMax = Helper.WorldToGridPos(curPosition + halfSize, cellSize);
 

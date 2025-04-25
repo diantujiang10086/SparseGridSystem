@@ -32,7 +32,7 @@ internal struct RemoveColliderJob : IJob
             if (indexToRemove != lastIndex)
             {
                 var moved = colliders[lastIndex];
-                idToIndex[moved.instanceId] = indexToRemove;
+                idToIndex[moved.header.instanceId] = indexToRemove;
             }
             colliders.RemoveAtSwapBack(indexToRemove);
         }

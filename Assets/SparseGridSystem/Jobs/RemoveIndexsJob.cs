@@ -24,7 +24,7 @@ internal struct RemoveIndexsJob : IJobParallelFor
 
         if(collider.IsEnableColliderDetection())
         {
-            if(colliderDetectionMap.TryGetValue(collider.instanceId, out var colliderDetectionIndex))
+            if(colliderDetectionMap.TryGetValue(collider.header.instanceId, out var colliderDetectionIndex))
             {
                 removeColliderDetectionIndexs.Add(colliderDetectionIndex);
             }
@@ -36,7 +36,7 @@ internal struct RemoveIndexsJob : IJobParallelFor
         {
             for (int y = min.y; y <= max.y; y++)
             {
-                removeGridInstanceIds.Add(new int3(x, y, collider.instanceId));
+                removeGridInstanceIds.Add(new int3(x, y, collider.header.instanceId));
             }
         }
     }

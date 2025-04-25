@@ -16,14 +16,14 @@ internal struct AddColliderJob : IJobParallelFor
     public void Execute(int index)
     {
         var collider = addArray[index];
-        int instanceId = collider.instanceId;
+        int instanceId = collider.header.instanceId;
         var colliderIndex = arrayLength + index;
         colliders[colliderIndex] = collider;
         idToIndex.TryAdd(instanceId, colliderIndex);
 
         if(collider.IsEnableColliderDetection())
         {
-            addColliderDetections.AddNoResize(collider.instanceId);
+            addColliderDetections.AddNoResize(collider.header.instanceId);
         }
 
         collider.GetGrid(cellSize, out var min, out var max);

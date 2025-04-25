@@ -15,7 +15,7 @@ internal struct UpdateColliderJob : IJobParallelFor
             return;
 
         Collider collider = colliders[colliderIndex];
-        collider.position = updateCollider.position;
+        collider.header.position = updateCollider.position;
         colliders[colliderIndex] = collider;
     }
 }
