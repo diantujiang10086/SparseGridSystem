@@ -3,7 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 
-[BurstCompile(Debug =true)]
+[BurstCompile()]
 internal struct RemoveColliderJob : IJob
 {
     private static readonly IntComparer intComparer = default;
