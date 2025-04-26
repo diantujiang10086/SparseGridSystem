@@ -16,7 +16,6 @@ public class Example : MonoBehaviour
     private void Awake()
     {
         random = new Unity.Mathematics.Random((uint)UnityEngine.Random.Range(int.MinValue, int.MaxValue));
-        World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SparseGridSystem>().Initialize(count, size);
         for (int i = 0; i < count; i++)
         {
             AddCollider();

@@ -25,6 +25,8 @@ public partial class ColliderDetectionSystem : SystemBase
     }
     protected override void OnUpdate()
     {
+        if (example == null)
+            return;
         var resultList = new NativeList<CollisionDetectionEvent>(4096,Allocator.TempJob);
         var job = new ColliderDetectionResult
         {

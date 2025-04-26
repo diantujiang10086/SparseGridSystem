@@ -15,11 +15,16 @@ public partial class QueryColliderSystem : SystemBase
         currentUnits = new HashSet<Unit>(4096);
         lastUnits = new HashSet<Unit>(4096);
         example = Transform.FindAnyObjectByType<Example>();
-        queryRadiusComponent = new GameObject().AddComponent<QueryRadiusComponent>();
+        if (example != null)
+        {
+            queryRadiusComponent = new GameObject().AddComponent<QueryRadiusComponent>();
+        }
     }
 
     protected override void OnUpdate()
     {
+        if (example == null)
+            return;
         var result = new NativeList<int>(4096 * 4, Allocator.TempJob);
         Dependency = new QueryRadiusColliderJob
         {

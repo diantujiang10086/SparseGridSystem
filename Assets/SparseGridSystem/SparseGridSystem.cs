@@ -7,9 +7,7 @@ using Unity.Mathematics;
 [UpdateAfter(typeof(LateSimulationSystemGroup))]
 public partial class SparseGridSystem : SystemBase
 {
-    private int defaultCapacity = 4096;
-    private int defaultCellSize = 1;
-    private int initCapacity = 4096;
+    private const int defaultCapacity = 4096;
     private float cellSize = 1;
     private DoubleBufferList<int> removeBuffer;
     private DoubleBufferList<Collider> addBuffer;
@@ -28,7 +26,8 @@ public partial class SparseGridSystem : SystemBase
     public void Initialize(int capacity, int cellSize)
     {
         this.cellSize = cellSize;
-        initCapacity = math.max(defaultCapacity, capacity);
+        int initCapacity = math.max(defaultCapacity, capacity);
+        
 
         if(removeBuffer == null)
         {
@@ -120,7 +119,8 @@ public partial class SparseGridSystem : SystemBase
 
     protected override void OnCreate()
     {
-        Initialize(defaultCapacity, defaultCellSize);
+        var _default = SparseGridSetting.Default;
+        Initialize(_default.capacity, _default.cellSize);
     }
 
     protected override void OnDestroy()
@@ -141,110 +141,123 @@ public partial class SparseGridSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        var addArray = addBuffer.Update();
-        var removeInstanceIdArray = removeBuffer.Update();
-        var updateArray = updateBuffer.Update();
-
-        if(removeInstanceIdArray.Length > 0)
-        {
-            var removeColliderIndexsSet = new NativeParallelHashSet<InstanceIdWithIndex>(removeInstanceIdArray.Length, Allocator.TempJob);
-            var removeGridInstanceIdsSet = new NativeParallelHashSet<int3>(removeInstanceIdArray.Length * 4, Allocator.TempJob);
-            var removeColliderDetectionIndexs = new NativeParallelHashSet<int>(removeInstanceIdArray.Length, Allocator.TempJob);
-            var handle = new RemoveIndexsJob
-            {
-                cellSize = cellSize,
-                colliders = colliders,
-                idToIndex = idToIndex,
-                removeArray = removeInstanceIdArray,
-                colliderDetectionMap = colliderDetectionMap,
-                removeGridInstanceIds = removeGridInstanceIdsSet.AsParallelWriter(),
-                removeColliderIndexs = removeColliderIndexsSet.AsParallelWriter(),
-                removeColliderDetectionIndexs = removeColliderDetectionIndexs.AsParallelWriter(),
-            }.Schedule(removeInstanceIdArray.Length, 128, Dependency);
-            handle = new RemoveColliderJob
-            {
-                idToIndex = idToIndex,
-                colliders = colliders,
-                removeEntries = removeColliderIndexsSet,
-                colliderDetections = colliderDetections,
-                colliderDetectionMap = colliderDetectionMap,
-                removeColliderDetectionIndexs = removeColliderDetectionIndexs,
-            }.Schedule(handle);
-            handle = new RemoveGridMapJob
-            {
-                gridMap = gridMap,
-                removeGridInstanceIds = removeGridInstanceIdsSet
-            }.Schedule(handle);
-            Dependency = handle;
-            var disposeHandle1 = removeColliderIndexsSet.Dispose(handle);
-            var disposeHandle2 = removeGridInstanceIdsSet.Dispose(handle);
-            Dependency = JobHandle.CombineDependencies(disposeHandle1, disposeHandle2);
-        }
-
-        if(addArray.Length > 0)
-        {
-            Dependency.Complete();
-            int startLength = colliders.Length;
-            colliders.ResizeUninitialized(colliders.Length + addArray.Length);
-            NativeList<int> addColliderDetections = new NativeList<int>(addArray.Length, Allocator.Persistent);
-            var handle = new AddColliderJob
-            {
-                cellSize = cellSize,
-                arrayLength = startLength,
-                addArray = addArray,
-                colliders = colliders,
-                gridMap = gridMap.AsParallelWriter(),
-                idToIndex = idToIndex.AsParallelWriter(),
-                addColliderDetections = addColliderDetections.AsParallelWriter(),
-            }.Schedule(addArray.Length, 128, Dependency);
-            handle.Complete();
-
-            int colliderArrayLength = colliderDetections.Length;
-            colliderDetections.ResizeUninitialized(colliderDetections.Length + addColliderDetections.Length);
-            var handle2 = new AddColliderDetectionJob
-            {
-                colliderArrayLength = colliderArrayLength,
-                addColliderDetections = addColliderDetections,
-                colliderDetections = colliderDetections,
-                colliderDetectionMap = colliderDetectionMap.AsParallelWriter(),
-            }.Schedule(addColliderDetections, 128, handle);
-            addColliderDetections.Dispose(handle2);
-            Dependency = handle2;
-        }
-
-        if (updateArray.Length > 0)
-        {
-            var removeGridInstanceIdsSet = new NativeParallelHashSet<int3>(updateArray.Length * 4, Allocator.TempJob);
-            var handle = new UpdateGridJob
-            {
-                cellSize = cellSize,
-                gridMap = gridMap.AsParallelWriter(),
-                colliders = colliders,
-                idToIndex = idToIndex,
-                removeGrid = removeGridInstanceIdsSet.AsParallelWriter(),
-                updateColliders = updateArray
-            }.Schedule(updateArray.Length, 128, Dependency);
-            handle = new RemoveGridMapJob
-            {
-                gridMap = gridMap,
-                removeGridInstanceIds = removeGridInstanceIdsSet
-            }.Schedule(handle);
-            removeGridInstanceIdsSet.Dispose(handle);
-            Dependency = new UpdateColliderJob
-            {
-                 colliders = colliders,
-                idToIndex = idToIndex,
-                 updateColliders = updateArray
-            }.Schedule(updateArray.Length, 128, handle);
-        }
-
+        Dependency = RemoveColliders(Dependency);
+        Dependency = AddColliders(Dependency);
+        Dependency = UpdateColliders(Dependency);
         Dependency = ColliderDetection(Dependency);
 
     }
 
-    
+    JobHandle RemoveColliders(JobHandle inputDeps)
+    {
+        var removeInstanceIdArray = removeBuffer.Update();
+        if (removeInstanceIdArray.Length == 0)
+            return inputDeps;
 
-    JobHandle ColliderDetection(JobHandle jobHandle)
+        var removeColliderIndexsSet = new NativeParallelHashSet<InstanceIdWithIndex>(removeInstanceIdArray.Length, Allocator.TempJob);
+        var removeGridInstanceIdsSet = new NativeParallelHashSet<int3>(removeInstanceIdArray.Length * 4, Allocator.TempJob);
+        var removeColliderDetectionIndexs = new NativeParallelHashSet<int>(removeInstanceIdArray.Length, Allocator.TempJob);
+        var handle = new RemoveIndexsJob
+        {
+            cellSize = cellSize,
+            colliders = colliders,
+            idToIndex = idToIndex,
+            removeArray = removeInstanceIdArray,
+            colliderDetectionMap = colliderDetectionMap,
+            removeGridInstanceIds = removeGridInstanceIdsSet.AsParallelWriter(),
+            removeColliderIndexs = removeColliderIndexsSet.AsParallelWriter(),
+            removeColliderDetectionIndexs = removeColliderDetectionIndexs.AsParallelWriter(),
+        }.Schedule(removeInstanceIdArray.Length, 128, inputDeps);
+        handle = new RemoveColliderJob
+        {
+            idToIndex = idToIndex,
+            colliders = colliders,
+            removeEntries = removeColliderIndexsSet,
+            colliderDetections = colliderDetections,
+            colliderDetectionMap = colliderDetectionMap,
+            removeColliderDetectionIndexs = removeColliderDetectionIndexs,
+        }.Schedule(handle);
+        handle = new RemoveGridMapJob
+        {
+            gridMap = gridMap,
+            removeGridInstanceIds = removeGridInstanceIdsSet
+        }.Schedule(handle);
+        inputDeps = handle;
+        var disposeHandle1 = removeColliderIndexsSet.Dispose(handle);
+        var disposeHandle2 = removeGridInstanceIdsSet.Dispose(handle);
+        inputDeps = JobHandle.CombineDependencies(disposeHandle1, disposeHandle2);
+        return inputDeps;
+    }
+
+    JobHandle AddColliders(JobHandle inputDeps)
+    {
+        var addArray = addBuffer.Update();
+        if (addArray.Length <= 0)
+            return inputDeps;
+
+        inputDeps.Complete();
+        int startLength = colliders.Length;
+        colliders.ResizeUninitialized(colliders.Length + addArray.Length);
+        NativeList<int> addColliderDetections = new NativeList<int>(addArray.Length, Allocator.Persistent);
+        var handle = new AddColliderJob
+        {
+            cellSize = cellSize,
+            arrayLength = startLength,
+            addArray = addArray,
+            colliders = colliders,
+            gridMap = gridMap.AsParallelWriter(),
+            idToIndex = idToIndex.AsParallelWriter(),
+            addColliderDetections = addColliderDetections.AsParallelWriter(),
+        }.Schedule(addArray.Length, 128, inputDeps);
+        handle.Complete();
+
+        int colliderArrayLength = colliderDetections.Length;
+        colliderDetections.ResizeUninitialized(colliderDetections.Length + addColliderDetections.Length);
+        var handle2 = new AddColliderDetectionJob
+        {
+            colliderArrayLength = colliderArrayLength,
+            addColliderDetections = addColliderDetections,
+            colliderDetections = colliderDetections,
+            colliderDetectionMap = colliderDetectionMap.AsParallelWriter(),
+        }.Schedule(addColliderDetections, 128, handle);
+        addColliderDetections.Dispose(handle2);
+        inputDeps = handle2;
+        return inputDeps;
+    }
+
+    JobHandle UpdateColliders(JobHandle inputDeps)
+    {
+        var updateArray = updateBuffer.Update();
+        if (updateArray.Length == 0)
+            return inputDeps;
+
+        var removeGridInstanceIdsSet = new NativeParallelHashSet<int3>(updateArray.Length * 4, Allocator.TempJob);
+        var handle = new UpdateGridJob
+        {
+            cellSize = cellSize,
+            gridMap = gridMap.AsParallelWriter(),
+            colliders = colliders,
+            idToIndex = idToIndex,
+            removeGrid = removeGridInstanceIdsSet.AsParallelWriter(),
+            updateColliders = updateArray
+        }.Schedule(updateArray.Length, 128, inputDeps);
+        handle = new RemoveGridMapJob
+        {
+            gridMap = gridMap,
+            removeGridInstanceIds = removeGridInstanceIdsSet
+        }.Schedule(handle);
+        removeGridInstanceIdsSet.Dispose(handle);
+        inputDeps = new UpdateColliderJob
+        {
+            colliders = colliders,
+            idToIndex = idToIndex,
+            updateColliders = updateArray
+        }.Schedule(updateArray.Length, 128, handle);
+
+        return inputDeps;
+    }
+
+    JobHandle ColliderDetection(JobHandle inputDeps)
     {
         if (collisionDetectionHandle.IsCompleted)
         {
@@ -260,7 +273,7 @@ public partial class SparseGridSystem : SystemBase
             colliders = colliders.AsDeferredJobArray(),
             result = colliderDetectionResultSet.AsParallelWriter(),
             resultArray = colliderDetectionResultArray.AsParallelWriter()
-        }.Schedule(colliderDetections, 128, jobHandle);
+        }.Schedule(colliderDetections, 128, inputDeps);
         return collisionDetectionHandle;
     }
 
