@@ -34,7 +34,7 @@ namespace SparseGrid
         }
     }
 
-    [BurstCompile()]
+    [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
     internal struct CollisionDetectionJob : IJobParallelForDefer
     {
         [ReadOnly] public float cellSize;

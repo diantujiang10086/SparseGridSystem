@@ -5,27 +5,57 @@ using Unity.Mathematics;
 
 namespace SparseGrid
 {
-    [BurstCompile()]
+    internal struct UpdateColliderInfo
+    {
+        public Collider collider;
+        public float2 newPosition;
+    }
+
+    [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
+    internal struct PrepareUpdateColliderInfoJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<UpdateCollider>.ReadOnly updateArray;
+        [ReadOnly] public NativeParallelHashMap<int, int> idToIndex;
+        [ReadOnly] public NativeList<Collider> colliders;
+
+        [WriteOnly] public NativeArray<UpdateColliderInfo> output;
+
+        public void Execute(int index)
+        {
+            var update = updateArray[index];
+            if (idToIndex.TryGetValue(update.instanceId, out var colliderIndex))
+            {
+                output[index] = new UpdateColliderInfo
+                {
+                    collider = colliders[colliderIndex],
+                    newPosition = update.position
+                };
+            }
+            else
+            {
+                output[index] = default;
+            }
+        }
+    }
+
+    [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
     internal struct UpdateGridJob : IJobParallelFor
     {
         [ReadOnly] public float cellSize;
-        [ReadOnly] public NativeList<Collider> colliders;
-        [ReadOnly] public NativeArray<UpdateCollider>.ReadOnly updateColliders;
-        [ReadOnly] public NativeParallelHashMap<int, int> idToIndex;
+        [ReadOnly] public NativeArray<UpdateColliderInfo> updateColliderInfos;
         public NativeParallelMultiHashMap<int2, int>.ParallelWriter gridMap;
         public NativeParallelHashSet<int3>.ParallelWriter removeGrid;
         public void Execute(int index)
         {
-            var updateCollider = updateColliders[index];
-            Collider collider;
-            if (!idToIndex.TryGetValue(updateCollider.instanceId, out var colliderIndex))
+            var info = updateColliderInfos[index];
+            var collider = info.collider;
+            int instanceId = collider.header.instanceId;
+            if (instanceId == 0)
                 return;
 
-            collider = colliders[colliderIndex];
-
             var curPosition = collider.header.position;
-            var newPosition = updateCollider.position;
-            if (math.all(curPosition == newPosition))
+            var newPosition = info.newPosition;
+            if (math.lengthsq(curPosition - newPosition) < 0.0001f)
                 return;
 
             var halfSize = collider.header.size * 0.5f;
@@ -41,7 +71,7 @@ namespace SparseGrid
                 {
                     if (x < newMin.x || x > newMax.x || y < newMin.y || y > newMax.y)
                     {
-                        removeGrid.Add(new int3(x, y, updateCollider.instanceId));
+                        removeGrid.Add(new int3(x, y, instanceId));
                     }
                 }
             }
@@ -52,7 +82,7 @@ namespace SparseGrid
                 {
                     if (x < oldMin.x || x > oldMax.x || y < oldMin.y || y > oldMax.y)
                     {
-                        gridMap.Add(new int2(x, y), updateCollider.instanceId);
+                        gridMap.Add(new int2(x, y), instanceId);
                     }
                 }
             }

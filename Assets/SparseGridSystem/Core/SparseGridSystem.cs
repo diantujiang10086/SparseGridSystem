@@ -234,27 +234,34 @@ namespace SparseGrid
                 return inputDeps;
 
             var removeGridInstanceIdsSet = new NativeParallelHashSet<int3>(updateArray.Length * 4, Allocator.TempJob);
-            var handle = new UpdateGridJob
+            var updateColliderInfos = new NativeArray<UpdateColliderInfo>(updateArray.Length, Allocator.TempJob);
+            var handle = new PrepareUpdateColliderInfoJob
+            {
+                updateArray = updateArray,
+                idToIndex = idToIndex,
+                colliders = colliders,
+                output = updateColliderInfos
+            }.Schedule(updateArray.Length, 128, inputDeps);
+            var handle2 = new UpdateGridJob
             {
                 cellSize = cellSize,
                 gridMap = gridMap.AsParallelWriter(),
-                colliders = colliders,
-                idToIndex = idToIndex,
+                updateColliderInfos = updateColliderInfos,
                 removeGrid = removeGridInstanceIdsSet.AsParallelWriter(),
-                updateColliders = updateArray
-            }.Schedule(updateArray.Length, 128, inputDeps);
-            handle = new RemoveGridMapJob
+            }.Schedule(updateArray.Length,128, handle);
+            updateColliderInfos.Dispose(handle2);
+            var handle3 = new RemoveGridMapJob
             {
                 gridMap = gridMap,
                 removeGridInstanceIds = removeGridInstanceIdsSet
-            }.Schedule(handle);
-            removeGridInstanceIdsSet.Dispose(handle);
+            }.Schedule(handle2);
+            removeGridInstanceIdsSet.Dispose(handle3);
             inputDeps = new UpdateColliderJob
             {
                 colliders = colliders,
                 idToIndex = idToIndex,
                 updateColliders = updateArray
-            }.Schedule(updateArray.Length, 128, handle);
+            }.Schedule(updateArray.Length, 128, handle3);
 
             return inputDeps;
         }
@@ -275,7 +282,7 @@ namespace SparseGrid
                 colliders = colliders.AsDeferredJobArray(),
                 result = colliderDetectionResultSet.AsParallelWriter(),
                 resultArray = colliderDetectionResultArray.AsParallelWriter()
-            }.Schedule(colliderDetections, 128, inputDeps);
+            }.Schedule(colliderDetections, 32, inputDeps);
             return collisionDetectionHandle;
         }
 
