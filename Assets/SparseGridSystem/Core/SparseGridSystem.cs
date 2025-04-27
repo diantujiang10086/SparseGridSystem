@@ -258,6 +258,7 @@ namespace SparseGrid
             removeGridInstanceIdsSet.Dispose(handle3);
             inputDeps = new UpdateColliderJob
             {
+                cellSize = cellSize,
                 colliders = colliders,
                 idToIndex = idToIndex,
                 updateColliders = updateArray

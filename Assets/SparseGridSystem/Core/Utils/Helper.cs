@@ -67,12 +67,25 @@ namespace SparseGrid
             return (int2)math.floor(worldPos / cellSize);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void GetGrid(this Collider collider, float cellSize, out int2 min, out int2 max)
+        public static RectCollider CalculateRectCollider(Collider collider, float2 position, float cellSize)
         {
-            var halfSize = collider.header.size * 0.5f;
-            min = Helper.WorldToGridPos(collider.header.position - halfSize, cellSize);
-            max = Helper.WorldToGridPos(collider.header.position + halfSize, cellSize);
+            switch (collider.header.colliderShape) 
+            {
+                case ColliderShape.Box:
+                    {
+                        ref readonly var boxCollider = ref UnsafeUtility.As<Collider, BoxCollider>(ref collider);
+                        GetGrid(position + boxCollider.center, boxCollider.size, cellSize, out var min, out var max);
+                        return new RectCollider(min, max);
+                    }
+                case ColliderShape.Circle:
+                    {
+                        ref readonly var circleCollider = ref UnsafeUtility.As<Collider, CircleCollider>(ref collider);
+                        GetGrid(position + circleCollider.center, circleCollider.radius, cellSize, out var min, out var max);
+                        return new RectCollider(min, max);
+                    }
+            }
+
+            return default;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

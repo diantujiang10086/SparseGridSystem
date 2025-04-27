@@ -7,6 +7,7 @@ namespace SparseGrid
     public struct BoxCollider
     {
         public ColliderHeader header;
+        public RectCollider rectCollider;
         public float2 center;
         public float2 size;
     }

@@ -4,11 +4,14 @@ using Unity.Mathematics;
 
 namespace SparseGrid
 {
+
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
 
     public struct Collider : IEquatable<Collider>
     {
         public ColliderHeader header;
+        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        public RectCollider rectCollider;
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         private float4 placeholder;
 

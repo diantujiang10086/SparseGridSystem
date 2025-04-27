@@ -53,17 +53,15 @@ namespace SparseGrid
             if (instanceId == 0)
                 return;
 
-            var curPosition = collider.header.position;
             var newPosition = info.newPosition;
-            if (math.lengthsq(curPosition - newPosition) < 0.0001f)
+            var newRectCollider = Helper.CalculateRectCollider(collider, newPosition, cellSize);
+            if (collider.rectCollider == newRectCollider)
                 return;
 
-            var halfSize = collider.header.size * 0.5f;
-            var oldMin = Helper.WorldToGridPos(curPosition - halfSize, cellSize);
-            var oldMax = Helper.WorldToGridPos(curPosition + halfSize, cellSize);
-
-            var newMin = Helper.WorldToGridPos(newPosition - halfSize, cellSize);
-            var newMax = Helper.WorldToGridPos(newPosition + halfSize, cellSize);
+            var oldMin = collider.rectCollider.min;
+            var oldMax = collider.rectCollider.max;
+            var newMin = newRectCollider.min;
+            var newMax = newRectCollider.max;
 
             for (int x = oldMin.x; x <= oldMax.x; x++)
             {

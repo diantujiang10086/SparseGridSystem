@@ -51,7 +51,8 @@ namespace SparseGrid
                 return;
 
             var collider = colliders[colliderIndex];
-            collider.GetGrid(cellSize, out var min, out var max);
+            var min = collider.rectCollider.min;
+            var max = collider.rectCollider.max;
 
             for (int x = min.x; x <= max.x; x++)
             {

@@ -18,6 +18,7 @@ namespace SparseGrid
         public void Execute(int index)
         {
             var collider = addArray[index];
+            collider.rectCollider = Helper.CalculateRectCollider(collider, collider.header.position, cellSize);
             int instanceId = collider.header.instanceId;
             var colliderIndex = arrayLength + index;
             colliders[colliderIndex] = collider;
@@ -28,7 +29,8 @@ namespace SparseGrid
                 addColliderDetections.AddNoResize(collider.header.instanceId);
             }
 
-            collider.GetGrid(cellSize, out var min, out var max);
+            var min = collider.rectCollider.min;
+            var max = collider.rectCollider.max;
 
             for (int x = min.x; x <= max.x; x++)
             {

@@ -7,6 +7,7 @@ namespace SparseGrid
     public struct CircleCollider
     {
         public ColliderHeader header;
+        public RectCollider rectCollider;
         public float2 center;
         public float radius;
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
