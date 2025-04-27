@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using SparseGrid;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Logging;

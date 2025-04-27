@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
+using SparseGrid;
 
 public partial class QueryColliderSystem : SystemBase
 {

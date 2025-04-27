@@ -1,5 +1,5 @@
 ﻿using Unity.Collections;
-
+using SparseGrid;
 public struct QueryRadiusColliderJob : IQueryRadiusColliderEventJob
 {
     public NativeList<int>.ParallelWriter result;

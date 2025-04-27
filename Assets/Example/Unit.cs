@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SparseGrid;
+using System;
 using Unity.Mathematics;
 
 using UnityEngine;
